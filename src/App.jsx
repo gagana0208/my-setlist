@@ -779,9 +779,9 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
     link.click();
   };
 
+  // printing disabled; preview only, exportPDF retained for legacy if needed but no-op
   const exportPDF = async () => {
-    setShowPreview(true);
-    setTimeout(() => window.print(), 500);
+    // no action
   };
 
   const sl = setlist;
@@ -890,7 +890,6 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn" onClick={() => setShowSettings(s => !s)}>⚙ 設定</button>
             <button className="btn" onClick={() => setShowPreview(s => !s)}>👁 プレビュー</button>
-            <button className="btn btn-primary" onClick={exportPDF}>📄 PDF/印刷</button>
           </div>
         </div>
 
