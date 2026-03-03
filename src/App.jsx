@@ -217,7 +217,7 @@ function ConfirmModal({ message, onOk, onCancel }) {
       <div className="modal" style={{ maxWidth: 400, textAlign: "center" }}>
         <div style={{ fontSize: 32, marginBottom: 14 }}>🗑️</div>
         <div style={{ fontSize: 15, lineHeight: 1.7, marginBottom: 24, color: "var(--text)" }}>{message}</div>
-        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+        <div style={{ display: "flex", gap: 10, justifyContent: "center", alignItems: "center" }}>
           <button className="btn" style={{ minWidth: 80 }} onClick={onCancel}>NG</button>
           <button className="btn btn-danger" style={{ minWidth: 80 }} onClick={onOk}>OK</button>
         </div>
