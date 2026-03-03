@@ -398,7 +398,7 @@ function HomeView({ data, setData, onOpenSetlist }) {
         </button>
         <button className="btn" style={{ fontSize: 14, padding: "10px 20px" }}
           onClick={() => setShowCommonItemsModal(true)}>
-          ✏️ 共通項目を編集
+          ✏️ 共通アイテムを編集
         </button>
       </div>
 
@@ -627,7 +627,7 @@ function HomeView({ data, setData, onOpenSetlist }) {
         }}>SETLIST MAKER</div>
         {/* ↓ ここにWebサイトや開発者情報を記載してください */}
         <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.8 }}>
-          <div>© 2025 Naoki Yoshihara</div>
+          <div>© 2026 Naoki Yoshihara</div>
           <div>
             <a 
               href="https://X.com/gagana02"
@@ -796,9 +796,8 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
             ← ホームへ
           </button>
           <div style={{
-            fontFamily: "'Bebas Neue'", fontSize: 13,
-            letterSpacing: 2, color: "var(--text2)"
-          }}>曲ライブラリ</div>
+            fontFamily: "'Bebas Neue'", letterSpacing: 2, fontSize: 14, color: "var(--gold)", marginBottom: 16
+          }}>SONG LIST by</div>
           <div style={{ fontSize: 12, color: "var(--gold)", fontFamily: "'Noto Serif JP'" }}>{band.name}</div>
         </div>
         <div style={{ flex: 1, overflowY: "auto", padding: "10px" }}>
