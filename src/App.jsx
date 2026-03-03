@@ -410,7 +410,7 @@ function HomeView({ data, setData, onOpenSetlist }) {
           color: "var(--text2)"
         }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>🎸</div>
-          <div style={{ fontSize: 14 }}>バンドタグを作成してセットリストを始めましょう</div>
+          <div style={{ fontSize: 14 }}>バンドタグを作成→曲を追加→セットリストを作成しよう！</div>
         </div>
       )}
 
@@ -627,18 +627,16 @@ function HomeView({ data, setData, onOpenSetlist }) {
         }}>SETLIST MAKER</div>
         {/* ↓ ここにWebサイトや開発者情報を記載してください */}
         <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.8 }}>
-          <div>© 2025 Your Name / Band</div>
+          <div>© 2025 Naoki Yoshihara</div>
           <div>
-            <a href="#" style={{ color: "var(--text2)", textDecoration: "none" }}
+            <a 
+              href="https://X.com/gagana02"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "var(--text2)", textDecoration: "none" }}
               onMouseEnter={e => e.target.style.color = "var(--gold)"}
               onMouseLeave={e => e.target.style.color = "var(--text2)"}>
-              Website
-            </a>
-            {" · "}
-            <a href="#" style={{ color: "var(--text2)", textDecoration: "none" }}
-              onMouseEnter={e => e.target.style.color = "var(--gold)"}
-              onMouseLeave={e => e.target.style.color = "var(--text2)"}>
-              Contact
+              SNS
             </a>
           </div>
           <div style={{ marginTop: 8, fontSize: 11, color: "var(--border)" }}>v1.0.0</div>
