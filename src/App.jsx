@@ -1152,7 +1152,7 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
                   ["showBpm", "BPM"],
                   ["showKey", "キー"],
                   ["showCapo", "カポ"],
-                  ["showCommonIcon", "共通項目の絵文字"],
+                  ["showCommonIcon", "共通アイテムの絵文字"],
                 ].map(([k, label]) => (
                   <label key={k} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, cursor: "pointer", fontSize: 13 }}>
                     <input type="checkbox" checked={sl[k]} onChange={e => updateSetlist({ [k]: e.target.checked })}
@@ -1188,7 +1188,7 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
 
               {/* Common item font */}
               <div style={{ marginBottom: 16 }}>
-                <div className="form-label">共通項目設定</div>
+                <div className="form-label">共通アイテム設定</div>
                 <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, cursor: "pointer", fontSize: 13 }}>
                   <input type="checkbox" checked={sl.commonFontMirrorSong ?? true}
                     onChange={e => updateSetlist({ commonFontMirrorSong: e.target.checked })}
@@ -1254,7 +1254,7 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
                     </button>
                   ))}
                 </div>
-                <div className="form-label">共通項目の文字配置</div>
+                <div className="form-label">共通アイテムの文字配置</div>
                 <div style={{ display: "flex", gap: 4 }}>
                   {[ ["left","左寄せ"],["center","中央"],["right","右寄せ"] ].map(([val, label]) => (
                     <button key={val} className="btn"
