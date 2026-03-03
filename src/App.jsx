@@ -1327,15 +1327,8 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
       {/* Preview Modal / Print */}
       {showPreview && (
         <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowPreview(false)}>
-          <div style={{ background: "var(--bg2)", borderRadius: 12, padding: 24, width: "90vw", maxWidth: 760, maxHeight: "90vh", overflow: "auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
-              <div className="modal-title">プレビュー（A4）</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button className="btn btn-primary" onClick={() => window.print()}>🖨️ 印刷 / PDF保存</button>
-                <button className="btn" onClick={() => setShowPreview(false)}>✕</button>
-              </div>
-            </div>
-            {/* Split items into pages by page-break markers */}
+          <div style={{ padding: 0, width: "100vw", height: "100vh", overflow: "auto", background: "transparent" }}>
+            {/* Only the setlist pages, centered */}
             {(() => {
               // Build resolved items (latest song/common data, skip deleted songs)
               const resolvedItems = sl.items.map(item => {
@@ -1363,7 +1356,7 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
                 return sl.textAlign || "left";
               };
               return (
-                <div id="setlist-preview-pages">
+                <div id="setlist-preview-pages" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                   {pages.map((pageItems, pageIdx) => (
                     <div key={pageIdx} style={{
                       width: "210mm",
