@@ -49,7 +49,7 @@ function Modal({ title, onClose, children, maxWidth = 520 }) {
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
   return (
-    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="modal-overlay">
       <div className="modal" style={{ maxWidth }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div className="modal-title">{title}</div>
@@ -79,7 +79,7 @@ function BandModal({ band, onSave, onClose }) {
   };
 
   return (
-    <Modal title={band ? "バンドを編集" : "バンドタグを作成"} onClose={onClose}>
+    <Modal title={band ? "バンドタグを編集" : "バンドタグを作成"} onClose={onClose}>
       <div className="form-group">
         <label className="form-label">バンド名 *</label>
         <input value={name} onChange={e => setName(e.target.value)} placeholder="バンド名を入力" autoFocus />
@@ -236,7 +236,7 @@ function CommonItemsModal({ items, onSave, onClose }) {
   const update = (id, k, v) => setLocalItems(li => li.map(x => x.id === id ? { ...x, [k]: v } : x));
 
   return (
-    <Modal title="共通項目を編集" onClose={onClose} maxWidth={560}>
+    <Modal title="共通アイテムを編集" onClose={onClose} maxWidth={560}>
       <div style={{ fontSize: 12, color: "var(--text2)", marginBottom: 14 }}>
         MC・休憩などの共通アイテムを管理します。全バンドのセットリストで使用できます。
       </div>
@@ -341,8 +341,14 @@ function HomeView({ data, setData, onOpenSetlist }) {
         id: newId, title, items: [],
         showTitle: true, showNumbers: true,
         showBpm: false, showKey: true, showCapo: false, showCommonIcon: true,
+        // font settings for songs
         font: "Noto Serif JP", fontSize: 18, letterSpacing: 1, lineHeight: 1.8,
+        // common-item font customization
+        commonFontMirrorSong: true,     // 曲と同じ設定か
+        commonFont: "Noto Serif JP", commonFontSize: 18, commonLetterSpacing: 1, commonLineHeight: 1.8,
         textAlign: "left", titleAlign: "left",
+        // common item alignment (initially same as textAlign)
+        commonTextAlign: null,
         fontColor: "#ffffff", bgColor: "#1a1a2e", bgImage: null,
         pages: 1,
       });
@@ -433,7 +439,7 @@ function HomeView({ data, setData, onOpenSetlist }) {
                   width: 10, height: 10, borderRadius: "50%",
                   background: band.color || "var(--gold)"
                 }} />
-                <span style={{ fontFamily: "'Noto Serif JP'", fontWeight: 600, fontSize: 16 }}>
+                <span style={{ fontWeight: 500, fontSize: 16 }}>
                   {band.name}
                 </span>
                 {band.members?.length > 0 && (
@@ -474,7 +480,11 @@ function HomeView({ data, setData, onOpenSetlist }) {
                       セットリスト
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {band.setlists.map(sl => (
+                      {band.setlists.map(sl => {
+                        const songCount = sl.items
+                          .filter(x => x.type === "song")
+                          .filter(x => band.songs.find(s => s.id === x.id)).length;
+                        return (
                         <div key={sl.id} style={{
                           display: "flex", alignItems: "center", justifyContent: "space-between",
                           padding: "10px 14px", background: "var(--bg3)",
@@ -500,9 +510,9 @@ function HomeView({ data, setData, onOpenSetlist }) {
                                 style={{ fontSize: 14, padding: "2px 8px", width: 200 }}
                               />
                             ) : (
-                              <span style={{ fontFamily: "'Noto Serif JP'", fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sl.title}</span>
+                              <span style={{ fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sl.title}</span>
                             )}
-                            <span className="chip" style={{ flexShrink: 0 }}>{sl.items.length}曲</span>
+                            <span className="chip" style={{ flexShrink: 0 }}>{songCount}曲</span>
                           </div>
                           <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                             {editingSetlist?.setlist.id === sl.id ? (
@@ -522,7 +532,8 @@ function HomeView({ data, setData, onOpenSetlist }) {
                             )}
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -798,7 +809,7 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
           <div style={{
             fontFamily: "'Bebas Neue'", letterSpacing: 2, fontSize: 14, color: "var(--gold)", marginBottom: 16
           }}>SONG LIST by</div>
-          <div style={{ fontSize: 12, color: "var(--gold)", fontFamily: "'Noto Serif JP'" }}>{band.name}</div>
+          <div style={{ fontSize: 12, color: "var(--gold)" }}>{band.name}</div>
         </div>
         <div style={{ flex: 1, overflowY: "auto", padding: "10px" }}>
           {/* Band Songs */}
@@ -871,7 +882,7 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
           <div style={{ flex: 1, minWidth: 200 }}>
             {sl.showTitle ? (
               <input value={sl.title} onChange={e => updateSetlist({ title: e.target.value })}
-                style={{ background: "transparent", border: "none", fontSize: 18, fontFamily: "'Noto Serif JP'", fontWeight: 600, color: "var(--text)", padding: 0 }} />
+                style={{ background: "transparent", border: "none", fontSize: 18, fontWeight: 600, color: "var(--text)", padding: 0 }} />
             ) : (
               <span style={{ fontSize: 14, color: "var(--text2)" }}>タイトル非表示</span>
             )}
@@ -961,7 +972,16 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
                   ? sl.items.slice(0, idx + 1).filter(x => x.type === "song").length
                   : null;
 
-                const align = sl.textAlign || "left";
+                const align = (resolvedItem.type === "common")
+                  ? (sl.commonTextAlign || sl.textAlign || "left")
+                  : (sl.textAlign || "left");
+                const styleOverride = {};
+                if (resolvedItem.type === "common" && sl.commonFontMirrorSong === false) {
+                  styleOverride.fontFamily = sl.commonFont;
+                  styleOverride.fontSize = sl.commonFontSize + "px";
+                  styleOverride.letterSpacing = sl.commonLetterSpacing + "px";
+                  styleOverride.lineHeight = sl.commonLineHeight || 1.8;
+                }
 
                 return (
                 <div key={item.instanceId}>
@@ -977,6 +997,7 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
                       transition: "background 0.1s",
                       userSelect: "none",
                       opacity: draggingItem?._sourceIdx === idx && draggingSource === "setlist" ? 0.35 : 1,
+                      ...styleOverride,
                     }}
                     onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}
@@ -1001,7 +1022,7 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
                       {sl.showNumbers && resolvedItem.type === "song" && (
                         <span style={{ opacity: 0.6, flexShrink: 0 }}>{songNum}.</span>
                       )}
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: align }}>
                         {resolvedItem.type === "pagebreak"
                           ? <span style={{ display: "block", textAlign: "center", opacity: 0.5, fontSize: 11, letterSpacing: 2, color: "var(--gold)", borderTop: "1px dashed rgba(201,168,76,0.4)", borderBottom: "1px dashed rgba(201,168,76,0.4)", padding: "3px 0" }}>── PAGE BREAK ──</span>
                           : resolvedItem.type === "common"
@@ -1164,6 +1185,41 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
                   onChange={e => updateSetlist({ lineHeight: +e.target.value })}
                   style={{ padding: 0, border: "none", background: "transparent", accentColor: "var(--gold)" }} />
               </div>
+
+              {/* Common item font */}
+              <div style={{ marginBottom: 16 }}>
+                <div className="form-label">共通項目設定</div>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, cursor: "pointer", fontSize: 13 }}>
+                  <input type="checkbox" checked={sl.commonFontMirrorSong ?? true}
+                    onChange={e => updateSetlist({ commonFontMirrorSong: e.target.checked })}
+                    style={{ width: "auto", accentColor: "var(--gold)" }} />
+                  曲と同じ設定
+                </label>
+                {!sl.commonFontMirrorSong && (
+                  <>
+                    <div className="form-label">フォント</div>
+                    <select value={sl.commonFont || sl.font} onChange={e => updateSetlist({ commonFont: e.target.value })} style={{ marginBottom: 10 }}>
+                      {FONTS.map(f => <option key={f} value={f}>{f}</option>)}
+                    </select>
+
+                    <div className="form-label">文字サイズ: { (sl.commonFontSize || sl.fontSize) }px</div>
+                    <input type="range" min="10" max="32" value={sl.commonFontSize || sl.fontSize}
+                      onChange={e => updateSetlist({ commonFontSize: +e.target.value })}
+                      style={{ padding: 0, border: "none", background: "transparent", accentColor: "var(--gold)" }} />
+
+                    <div className="form-label" style={{ marginTop: 10 }}>文字間隔 (横): {sl.commonLetterSpacing ?? sl.letterSpacing}px</div>
+                    <input type="range" min="0" max="10" value={sl.commonLetterSpacing ?? sl.letterSpacing}
+                      onChange={e => updateSetlist({ commonLetterSpacing: +e.target.value })}
+                      style={{ padding: 0, border: "none", background: "transparent", accentColor: "var(--gold)" }} />
+
+                    <div className="form-label" style={{ marginTop: 10 }}>行間 (縦): {((sl.commonLineHeight ?? sl.lineHeight) || 1.8).toFixed(1)}</div>
+                    <input type="range" min="1" max="4" step="0.1" value={(sl.commonLineHeight ?? sl.lineHeight) || 1.8}
+                      onChange={e => updateSetlist({ commonLineHeight: +e.target.value })}
+                      style={{ padding: 0, border: "none", background: "transparent", accentColor: "var(--gold)" }} />
+                  </>
+                )}
+              </div>
+              <div className="divider" />
               <div className="divider" />
 
               {/* Text Alignment */}
@@ -1194,6 +1250,21 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
                         background: (sl.textAlign || "left") === val ? "rgba(201,168,76,0.1)" : "transparent",
                       }}
                       onClick={() => updateSetlist({ textAlign: val })}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div className="form-label">共通項目の文字配置</div>
+                <div style={{ display: "flex", gap: 4 }}>
+                  {[ ["left","左寄せ"],["center","中央"],["right","右寄せ"] ].map(([val, label]) => (
+                    <button key={val} className="btn"
+                      style={{
+                        flex: 1, justifyContent: "center", padding: "6px 4px", fontSize: 12,
+                        borderColor: (sl.commonTextAlign || sl.textAlign || "left") === val ? "var(--gold)" : "var(--border)",
+                        color: (sl.commonTextAlign || sl.textAlign || "left") === val ? "var(--gold)" : "var(--text2)",
+                        background: (sl.commonTextAlign || sl.textAlign || "left") === val ? "rgba(201,168,76,0.1)" : "transparent",
+                      }}
+                      onClick={() => updateSetlist({ commonTextAlign: val })}>
                       {label}
                     </button>
                   ))}
@@ -1286,7 +1357,12 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
                 else { pages[pages.length - 1].push(item); }
               });
               let songCounter = 0;
-              const align = sl.textAlign || "left";
+              const align = (item) => {
+                if (item && item.type === "common") {
+                  return sl.commonTextAlign || sl.textAlign || "left";
+                }
+                return sl.textAlign || "left";
+              };
               return (
                 <div id="setlist-preview-pages">
                   {pages.map((pageItems, pageIdx) => (
@@ -1320,18 +1396,29 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
                       {pageItems.map((item) => {
                         if (item.type === "song") songCounter++;
                         const num = item.type === "song" ? songCounter : null;
+                        const styleOverride = {};
+                        const align = (item.type === "common")
+                          ? (sl.commonTextAlign || sl.textAlign || "left")
+                          : (sl.textAlign || "left");
+                        if (item.type === "common" && sl.commonFontMirrorSong === false) {
+                          styleOverride.fontFamily = sl.commonFont;
+                          styleOverride.fontSize = sl.commonFontSize + "px";
+                          styleOverride.letterSpacing = sl.commonLetterSpacing + "px";
+                          styleOverride.lineHeight = sl.commonLineHeight || 1.8;
+                        }
                         return (
                           <div key={item.instanceId} style={{
                             display: "flex", alignItems: "baseline",
-                            justifyContent: align === "right" ? "flex-end"
-                                          : align === "center" ? "center"
+                            justifyContent: align(item) === "right" ? "flex-end"
+                                          : align(item) === "center" ? "center"
                                           : "flex-start",
                             gap: "0.3em",
+                            ...styleOverride,
                           }}>
                             {sl.showNumbers && item.type === "song" && (
                               <span style={{ opacity: 0.6, flexShrink: 0 }}>{num}.</span>
                             )}
-                            <span style={{ textAlign: align }}>
+                            <span style={{ textAlign: align(item) }}>
                               {item.type === "common"
                                 ? ((sl.showCommonIcon !== false) ? `${item.icon || ""} ` : "") + item.label
                                 : item.title}
