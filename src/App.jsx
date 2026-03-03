@@ -1463,6 +1463,23 @@ export default function App() {
   const [activeBandId, setActiveBandId] = useState(null);
   const [activeSetlistId, setActiveSetlistId] = useState(null);
 
+  // update browser tab title based on current view/band/setlist
+  useEffect(() => {
+    let title = "SETLIST MAKER";
+    if (view === "home") {
+      title = "Setlist Maker";
+    } else if (view === "editor") {
+      const band = data.bands.find(b => b.id === activeBandId);
+      const setlist = band?.setlists.find(s => s.id === activeSetlistId);
+      if (band && setlist) {
+        title = `${setlist.title || "(無題)"} - ${band.name} | Setlist Maker`;
+      } else if (band) {
+        title = `${band.name} | Setlist Maker`;
+      }
+    }
+    document.title = title;
+  }, [view, activeBandId, activeSetlistId, data]);
+
   const openSetlist = (bandId, setlistId) => {
     setActiveBandId(bandId);
     setActiveSetlistId(setlistId);
