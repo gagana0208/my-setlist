@@ -11,6 +11,10 @@ const FontLoader = () => (
 const uid = () => Math.random().toString(36).slice(2, 10);
 const STORAGE_KEY = "setlist_maker_v2";
 
+// helpers for URL encoding
+const encodeForURL = (obj) => encodeURIComponent(btoa(JSON.stringify(obj)));
+const decodeFromURL = (str) => JSON.parse(atob(decodeURIComponent(str)));
+
 const loadData = () => {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || null; } catch { return null; }
 };
@@ -267,6 +271,24 @@ function CommonItemsModal({ items, onSave, onClose }) {
 
 /* ─── Home View ─── */
 function HomeView({ data, setData, onOpenSetlist }) {
+      // セットリストを複製する
+      const copySetlist = (bandId, setlist) => {
+        const newSetlist = {
+          ...setlist,
+          id: uid(),
+          title: setlist.title + ' (コピー)',
+          items: setlist.items.map(item => ({ ...item, instanceId: uid() })),
+        };
+        setData(prev => {
+          const d = JSON.parse(JSON.stringify(prev));
+          const band = d.bands.find(b => b.id === bandId);
+          if (band) band.setlists.push(newSetlist);
+          saveData(d);
+          return d;
+        });
+      };
+    // セットリストソート状態: { [bandId]: 'asc' | 'desc' }
+    const [setlistSortOrders, setSetlistSortOrders] = useState({});
   const [showBandModal, setShowBandModal] = useState(false);
   const [editingBand, setEditingBand] = useState(null);
   const [addSongBandId, setAddSongBandId] = useState(null);
@@ -276,6 +298,29 @@ function HomeView({ data, setData, onOpenSetlist }) {
   const [expandedBands, setExpandedBands] = useState({});
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [showCommonItemsModal, setShowCommonItemsModal] = useState(false);
+
+  // helper to update and persist
+  const saveAndSet = (newData) => {
+    setData(newData);
+    saveData(newData);
+  };
+
+  // copy JSON to clipboard for sharing (deprecated when using URL sharing)
+  // const shareData = () => {
+  //   const text = JSON.stringify(data);
+  //   navigator.clipboard.writeText(text)
+  //     .then(() => alert('クリップボードにコピーしました'))
+  //     .catch(() => alert('コピーに失敗しました'));
+  // };
+
+  // generate shareable URL containing the data as query parameter
+  const shareURL = () => {
+    const encoded = encodeForURL(data);
+    const url = `${window.location.origin}${window.location.pathname}?data=${encoded}`;
+    navigator.clipboard.writeText(url)
+      .then(() => alert('URLをクリップボードにコピーしました'))
+      .catch(() => alert('コピーに失敗しました'));
+  };
 
   const commonItems = data.commonItems || DEFAULT_COMMON_ITEMS;
 
@@ -383,6 +428,7 @@ function HomeView({ data, setData, onOpenSetlist }) {
   };
 
   return (
+
     <div style={{ maxWidth: 800, margin: "0 auto", padding: "24px 16px" }}>
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
@@ -396,6 +442,9 @@ function HomeView({ data, setData, onOpenSetlist }) {
         </div>
       </div>
 
+      {/* ソートUI */}
+      {/* バンド名並び替えUI削除 */}
+
       {/* Add Band Button + Common Items */}
       <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
         <button className="btn btn-primary" style={{ fontSize: 14, padding: "10px 20px" }}
@@ -406,6 +455,7 @@ function HomeView({ data, setData, onOpenSetlist }) {
           onClick={() => setShowCommonItemsModal(true)}>
           ✏️ 共通アイテムを編集
         </button>
+        {/* URL共有はバンド単位で各バンドヘッダーに設置 */}
       </div>
 
       {/* Empty State */}
@@ -420,9 +470,13 @@ function HomeView({ data, setData, onOpenSetlist }) {
         </div>
       )}
 
-      {/* Band List */}
       {data.bands.map(band => {
         const expanded = expandedBands[band.id] !== false;
+        const setlistOrder = setlistSortOrders?.[band.id] || 'asc';
+        const sortedSetlists = [...band.setlists].sort((a, b) => {
+          const cmp = a.title.localeCompare(b.title, 'ja', { sensitivity: 'base' });
+          return setlistOrder === 'asc' ? cmp : -cmp;
+        });
         return (
           <div key={band.id} style={{
             background: "var(--bg2)", border: "1px solid var(--border)",
@@ -456,6 +510,14 @@ function HomeView({ data, setData, onOpenSetlist }) {
                   onClick={e => { e.stopPropagation(); setEditingBand(band); setShowBandModal(true); }}>✏️</button>
                 <button className="btn btn-ghost btn-danger" style={{ padding: "4px 8px", fontSize: 12 }}
                   onClick={e => { e.stopPropagation(); deleteBand(band.id); }}>🗑️</button>
+                <button className="btn btn-ghost" style={{ padding: "4px 8px", fontSize: 12 }}
+                  onClick={e => {
+                    e.stopPropagation();
+                    const url = `${window.location.origin}${window.location.pathname}?band=${encodeURIComponent(btoa(JSON.stringify(band)))}`;
+                    navigator.clipboard.writeText(url)
+                      .then(() => alert('バンドの共有URLをコピーしました！'))
+                      .catch(() => alert('コピーに失敗しました'));
+                  }}>🌐 URL共有</button>
                 <span style={{ color: "var(--text2)", fontSize: 12 }}>{expanded ? "▲" : "▼"}</span>
               </div>
             </div>
@@ -473,144 +535,92 @@ function HomeView({ data, setData, onOpenSetlist }) {
                   </button>
                 </div>
 
-                {/* Setlists */}
+                {/* セットリストソートUI */}
                 {band.setlists.length > 0 && (
                   <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      <span style={{ fontSize: 11, color: "var(--text2)" }}>セットリスト並び替え:</span>
+                      <button
+                        className="btn"
+                        style={{ fontSize: 11, padding: "2px 10px", borderColor: setlistOrder === 'asc' ? 'var(--gold)' : 'var(--border)', color: setlistOrder === 'asc' ? 'var(--gold)' : 'var(--text2)' }}
+                        onClick={e => { e.stopPropagation(); setSetlistSortOrders(o => ({ ...o, [band.id]: 'asc' })); }}
+                      >昇順 ↑</button>
+                      <button
+                        className="btn"
+                        style={{ fontSize: 11, padding: "2px 10px", borderColor: setlistOrder === 'desc' ? 'var(--gold)' : 'var(--border)', color: setlistOrder === 'desc' ? 'var(--gold)' : 'var(--text2)' }}
+                        onClick={e => { e.stopPropagation(); setSetlistSortOrders(o => ({ ...o, [band.id]: 'desc' })); }}
+                      >降順 ↓</button>
+                    </div>
                     <div style={{ fontSize: 11, letterSpacing: 1, color: "var(--text2)", textTransform: "uppercase", marginBottom: 8 }}>
                       セットリスト
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {band.setlists.map(sl => {
+                      {sortedSetlists.map(sl => {
                         const songCount = sl.items
                           .filter(x => x.type === "song")
                           .filter(x => band.songs.find(s => s.id === x.id)).length;
                         return (
-                        <div key={sl.id} style={{
-                          display: "flex", alignItems: "center", justifyContent: "space-between",
-                          padding: "10px 14px", background: "var(--bg3)",
-                          borderRadius: 8, border: "1px solid var(--border)",
-                          cursor: "pointer", transition: "border-color 0.2s",
-                        }}
-                          onClick={() => onOpenSetlist(band.id, sl.id)}
-                          onMouseEnter={e => e.currentTarget.style.borderColor = band.color || "var(--gold)"}
-                          onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border)"}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
-                            <span style={{ fontSize: 15, flexShrink: 0 }}>📋</span>
-                            {editingSetlist?.setlist.id === sl.id ? (
-                              <input
-                                autoFocus
-                                value={editingSetlist.title}
-                                onChange={e => setEditingSetlist(es => ({ ...es, title: e.target.value }))}
-                                onClick={e => e.stopPropagation()}
-                                onKeyDown={e => {
-                                  if (e.key === "Enter") saveSetlistTitle(band.id, sl.id, editingSetlist.title);
-                                  if (e.key === "Escape") setEditingSetlist(null);
-                                }}
-                                style={{ fontSize: 14, padding: "2px 8px", width: 200 }}
-                              />
-                            ) : (
-                              <span style={{ fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sl.title}</span>
-                            )}
-                            <span className="chip" style={{ flexShrink: 0 }}>{songCount}曲</span>
+                          <div key={sl.id} style={{
+                            display: "flex", alignItems: "center", justifyContent: "space-between",
+                            padding: "10px 14px", background: "var(--bg3)",
+                            borderRadius: 8, border: "1px solid var(--border)",
+                            cursor: "pointer", transition: "border-color 0.2s"
+                          }}
+                            onClick={() => onOpenSetlist(band.id, sl.id)}
+                            onMouseEnter={e => e.currentTarget.style.borderColor = band.color || "var(--gold)"}
+                            onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border)"}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
+                              <span style={{ fontSize: 15, flexShrink: 0 }}>📋</span>
+                              {editingSetlist?.setlist.id === sl.id ? (
+                                <input
+                                  autoFocus
+                                  value={editingSetlist.title}
+                                  onChange={e => setEditingSetlist(es => ({ ...es, title: e.target.value }))}
+                                  onClick={e => e.stopPropagation()}
+                                  onKeyDown={e => {
+                                    if (e.key === "Enter") saveSetlistTitle(band.id, sl.id, editingSetlist.title);
+                                    if (e.key === "Escape") setEditingSetlist(null);
+                                  }}
+                                  style={{ fontSize: 14, padding: "2px 8px", width: 200 }}
+                                />
+                              ) : (
+                                <span style={{ fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sl.title}</span>
+                              )}
+                              <span className="chip" style={{ flexShrink: 0 }}>{songCount}曲</span>
+                            </div>
+                            <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                              <button className="btn btn-ghost" style={{ padding: "2px 7px", fontSize: 11 }}
+                                onClick={e => { e.stopPropagation(); copySetlist(band.id, sl); }}>コピーを作成</button>
+                              {editingSetlist?.setlist.id === sl.id ? (
+                                <>
+                                  <button className="btn btn-primary" style={{ padding: "2px 10px", fontSize: 11 }}
+                                    onClick={e => { e.stopPropagation(); saveSetlistTitle(band.id, sl.id, editingSetlist.title); }}>保存</button>
+                                  <button className="btn btn-ghost" style={{ padding: "2px 7px", fontSize: 11 }}
+                                    onClick={e => { e.stopPropagation(); setEditingSetlist(null); }}>✕</button>
+                                </>
+                              ) : (
+                                <>
+                                  <button className="btn btn-ghost" style={{ padding: "2px 7px", fontSize: 11 }}
+                                    onClick={e => { e.stopPropagation(); setEditingSetlist({ bandId: band.id, setlist: sl, title: sl.title }); }}>✏️</button>
+                                  <button className="btn btn-ghost btn-danger" style={{ padding: "2px 7px", fontSize: 11 }}
+                                    onClick={e => { e.stopPropagation(); deleteSetlist(band.id, sl.id, sl.title); }}>🗑️</button>
+                                </>
+                              )}
+                            </div>
                           </div>
-                          <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                            {editingSetlist?.setlist.id === sl.id ? (
-                              <>
-                                <button className="btn btn-primary" style={{ padding: "2px 10px", fontSize: 11 }}
-                                  onClick={e => { e.stopPropagation(); saveSetlistTitle(band.id, sl.id, editingSetlist.title); }}>保存</button>
-                                <button className="btn btn-ghost" style={{ padding: "2px 7px", fontSize: 11 }}
-                                  onClick={e => { e.stopPropagation(); setEditingSetlist(null); }}>✕</button>
-                              </>
-                            ) : (
-                              <>
-                                <button className="btn btn-ghost" style={{ padding: "2px 7px", fontSize: 11 }}
-                                  onClick={e => { e.stopPropagation(); setEditingSetlist({ bandId: band.id, setlist: sl, title: sl.title }); }}>✏️</button>
-                                <button className="btn btn-ghost btn-danger" style={{ padding: "2px 7px", fontSize: 11 }}
-                                  onClick={e => { e.stopPropagation(); deleteSetlist(band.id, sl.id, sl.title); }}>🗑️</button>
-                              </>
-                            )}
-                          </div>
-                        </div>
                         );
                       })}
                     </div>
                   </div>
                 )}
 
-                {/* Songs */}
-                {band.songs.length > 0 && (
-                  <div>
-                    <div style={{ fontSize: 11, letterSpacing: 1, color: "var(--text2)", textTransform: "uppercase", marginBottom: 8 }}>
-                      曲リスト ({band.songs.length}曲)
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      {band.songs.map((song, idx) => (
-                        <div key={song.id} style={{
-                          display: "flex", alignItems: "center", justifyContent: "space-between",
-                          padding: "8px 12px", background: "var(--bg3)",
-                          borderRadius: 6, fontSize: 13,
-                        }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <span style={{ color: "var(--text2)", minWidth: 20, fontSize: 11 }}>{idx + 1}</span>
-                            <span>{song.title}</span>
-                            {song.bpm && <span className="chip">♩{song.bpm}</span>}
-                            {song.key && <span className="chip">{song.key}</span>}
-                            {song.capo && <span className="chip">Capo {song.capo}</span>}
-                            {((parseInt(song.durationMin)||0) + (parseInt(song.durationSec)||0) > 0) && (
-                              <span className="chip">⏱ {parseInt(song.durationMin)||0}:{String(parseInt(song.durationSec)||0).padStart(2,"0")}</span>
-                            )}
-                          </div>
-                          <div style={{ display: "flex", gap: 4 }}>
-                            <button className="btn btn-ghost" style={{ padding: "2px 7px", fontSize: 11 }}
-                              onClick={() => setEditSong({ bandId: band.id, song })}>✏️</button>
-                            <button className="btn btn-ghost btn-danger" style={{ padding: "2px 7px", fontSize: 11 }}
-                              onClick={() => deleteSong(band.id, song.title, song.id)}>🗑️</button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {band.songs.length === 0 && band.setlists.length === 0 && (
-                  <div style={{ fontSize: 13, color: "var(--text2)", textAlign: "center", padding: "16px 0" }}>
-                    「＋曲を追加」から曲を登録してください
-                  </div>
-                )}
+                {/* ...existing code... */}
               </div>
             )}
           </div>
         );
       })}
-
-      {/* Modals */}
-      {showBandModal && (
-        <BandModal
-          band={editingBand}
-          onSave={saveBand}
-          onClose={() => { setShowBandModal(false); setEditingBand(null); }}
-        />
-      )}
-      {addSongBandId && (
-        <SongModal
-          onSave={(song) => saveSong(addSongBandId, song)}
-          onClose={() => setAddSongBandId(null)}
-        />
-      )}
-      {editSong && (
-        <SongModal
-          song={editSong.song}
-          onSave={(song) => saveSong(editSong.bandId, song)}
-          onClose={() => setEditSong(null)}
-        />
-      )}
-      {createSetlistBandId && (
-        <SetlistCreateModal
-          onSave={(title) => createSetlist(createSetlistBandId, title)}
-          onClose={() => setCreateSetlistBandId(null)}
-        />
-      )}
       {confirmDelete && (
         <ConfirmModal
           message={confirmDelete.message}
@@ -676,9 +686,18 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
   const [draggingSource, setDraggingSource] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showSongList, setShowSongList] = useState(true); // toggle for left panel on mobile
   const [editingDuration, setEditingDuration] = useState(null); // instanceId of common item being edited
   const previewRef = useRef(null);
   const itemRefs = useRef({});
+
+  // responsive: narrow panels on small screens
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 600);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 600);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   if (!band || !setlist) return <div>Not found</div>;
 
@@ -767,22 +786,8 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
   };
 
   /* ─── Export ─── */
-  const exportPNG = async () => {
-    const el = document.getElementById("setlist-preview-pages");
-    if (!el) return;
-    const { default: html2canvas } = await import("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.esm.js").catch(() => ({ default: null }));
-    if (!html2canvas) { alert("html2canvasが利用できません"); return; }
-    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: null });
-    const link = document.createElement("a");
-    link.download = `${setlist.title || "setlist"}.png`;
-    link.href = canvas.toDataURL("image/png");
-    link.click();
-  };
-
   // printing disabled; preview only, exportPDF retained for legacy if needed but no-op
-  const exportPDF = async () => {
-    // no action
-  };
+  // const exportPDF = async () => {};
 
   const sl = setlist;
   const itemStyle = (sl) => ({
@@ -797,11 +802,12 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
       {/* Left Panel - Song Library */}
-      <div style={{
-        width: 260, flexShrink: 0,
-        background: "var(--bg2)", borderRight: "1px solid var(--border)",
-        display: "flex", flexDirection: "column", overflow: "hidden"
-      }}>
+      {showSongList && (
+        <div style={{
+          width: isMobile ? 180 : 260, flexShrink: 0,
+          background: "var(--bg2)", borderRight: "1px solid var(--border)",
+          display: "flex", flexDirection: "column", overflow: "hidden"
+        }}>
         <div style={{ padding: "16px", borderBottom: "1px solid var(--border)" }}>
           <button className="btn btn-ghost" style={{ padding: "6px 10px", fontSize: 12, marginBottom: 10 }} onClick={onBack}>
             ← ホームへ
@@ -870,6 +876,7 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
           </div>
         </div>
       </div>
+      )}
 
       {/* Main Editor */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -888,6 +895,14 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
             )}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn" onClick={() => setShowSongList(s => !s)}>📋 曲一覧</button>
+            <button className="btn" onClick={() => {
+              const encoded = encodeForURL(sl);
+              const url = `${window.location.origin}${window.location.pathname}?setlist=${encoded}`;
+              navigator.clipboard.writeText(url)
+                .then(() => alert('URLをクリップボードにコピーしました'))
+                .catch(() => alert('コピーに失敗しました'));
+            }}>🌐 URL共有</button>
             <button className="btn" onClick={() => setShowSettings(s => !s)}>⚙ 設定</button>
             <button className="btn" onClick={() => setShowPreview(s => !s)}>👁 プレビュー</button>
           </div>
@@ -938,7 +953,7 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
                   border: "2px dashed rgba(255,255,255,0.15)", borderRadius: 8,
                   color: "rgba(255,255,255,0.3)", fontSize: 13
                 }}>
-                  ← 曲をここにドラッグ＆ドロップ
+                  ← 曲一覧からドラッグ＆ドロップ
                 </div>
               )}
 
@@ -1134,7 +1149,7 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
           {/* Settings Panel */}
           {showSettings && (
             <div style={{
-              width: 280, flexShrink: 0,
+              width: isMobile ? 220 : 280, flexShrink: 0,
               background: "var(--bg2)", borderLeft: "1px solid var(--border)",
               overflowY: "auto", padding: "16px"
             }}>
@@ -1327,7 +1342,9 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
       {/* Preview Modal / Print */}
       {showPreview && (
         <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowPreview(false)}>
-          <div style={{ padding: 0, width: "100vw", height: "100vh", overflow: "auto", background: "transparent" }}>
+          <div style={{ padding: 0, width: "100vw", height: "100vh", overflow: "auto", background: "transparent", position: "relative" }}>
+            {/* ensure content doesn't appear under fixed back button */}
+            <button className="btn" style={{ position: "fixed", top: 10, left: 10, zIndex: 100 }} onClick={() => setShowPreview(false)}>← 戻る</button>
             {/* Only the setlist pages, centered */}
             {(() => {
               // Build resolved items (latest song/common data, skip deleted songs)
@@ -1356,7 +1373,7 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
                 return sl.textAlign || "left";
               };
               return (
-                <div id="setlist-preview-pages" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <div id="setlist-preview-pages" style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 40 }}>
                   {pages.map((pageItems, pageIdx) => (
                     <div key={pageIdx} style={{
                       width: "210mm",
@@ -1455,6 +1472,81 @@ export default function App() {
   const [view, setView] = useState("home");
   const [activeBandId, setActiveBandId] = useState(null);
   const [activeSetlistId, setActiveSetlistId] = useState(null);
+
+  // when app loads, check URL params for data or setlist
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('data')) {
+      try {
+        const obj = decodeFromURL(params.get('data'));
+        setData(obj);
+        saveData(obj);
+        alert('URLデータを読み込みました');
+      } catch (e) {
+        console.error(e);
+        alert('URLデータの読み込みに失敗しました');
+      }
+      params.delete('data');
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+    if (params.has('setlist')) {
+      try {
+        const sl = decodeFromURL(params.get('setlist'));
+        // merge into first band or create if none
+        setData(prev => {
+          const copy = JSON.parse(JSON.stringify(prev));
+          let band = copy.bands[0];
+          if (!band) {
+            band = { id: uid(), name: 'Imported', color: '', songs: [], setlists: [] };
+            copy.bands.push(band);
+          }
+          // give new id
+          const newSl = { ...sl, id: uid() };
+          band.setlists = band.setlists || [];
+          band.setlists.push(newSl);
+          saveData(copy);
+          return copy;
+        });
+        alert('URLセットリストを取り込みました');
+      } catch (e) {
+        console.error(e);
+        alert('URLセットリストの読み込みに失敗しました');
+      }
+      params.delete('setlist');
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+    if (params.has('band')) {
+      try {
+        const band = JSON.parse(atob(decodeURIComponent(params.get('band'))));
+        setData(prev => {
+          const copy = JSON.parse(JSON.stringify(prev));
+          // 新しいIDを発行
+          const newBand = { ...band, id: uid() };
+          // メンバーIDもリセット（重複防止）
+          if (Array.isArray(newBand.members)) {
+            newBand.members = newBand.members.map(m => ({ ...m, id: uid() }));
+          }
+          // 曲IDもリセット
+          if (Array.isArray(newBand.songs)) {
+            newBand.songs = newBand.songs.map(s => ({ ...s, id: uid() }));
+          }
+          // セットリストIDもリセット
+          if (Array.isArray(newBand.setlists)) {
+            newBand.setlists = newBand.setlists.map(sl => ({ ...sl, id: uid() }));
+          }
+          copy.bands.push(newBand);
+          saveData(copy);
+          return copy;
+        });
+        alert('バンドを追加しました');
+      } catch (e) {
+        console.error(e);
+        alert('バンドの読み込みに失敗しました');
+      }
+      params.delete('band');
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
 
   // update browser tab title based on current view/band/setlist
   useEffect(() => {
