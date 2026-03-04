@@ -331,9 +331,10 @@ function HomeView({ data, setData, onOpenSetlist }) {
       update(d => { const b = d.bands.find(x => x.id === editingBand.id); Object.assign(b, bandData); return d; });
       setEditingBand(null);
     } else {
-      const newBand = { id: uid(), songs: [], setlists: [], ...bandData };
+      const newId = uid();
+      const newBand = { id: newId, songs: [], setlists: [], ...bandData };
       update(d => { d.bands.push(newBand); return d; });
-      setExpandedBands(e => ({ ...e, [newBand.id]: true }));
+      setExpandedBands(e => ({ ...e, [newId]: true }));
     }
     setShowBandModal(false);
   };
@@ -357,10 +358,15 @@ function HomeView({ data, setData, onOpenSetlist }) {
     } else {
       update(d => {
         const b = d.bands.find(x => x.id === bandId);
+        if (!b) {
+          console.warn('バンドが見つかりません:', bandId, d.bands.map(b => b.id));
+          return d;
+        }
         b.songs.push({ id: uid(), ...songData });
         return d;
       });
-      setAddSongBandId(null);
+      // setTimeoutで次のtickにモーダルを閉じることで確実に反映
+      setTimeout(() => setAddSongBandId(null), 0);
     }
   };
 
@@ -615,12 +621,75 @@ function HomeView({ data, setData, onOpenSetlist }) {
                   </div>
                 )}
 
-                {/* ...existing code... */}
+                {/* 曲リスト（バンドごと）をセットリスト同様の枠で表示 */}
+                <div style={{ marginTop: 16, marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, color: "var(--text2)", marginBottom: 6 }}>曲リスト</div>
+                  {band.songs && band.songs.length > 0 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {band.songs.map(song => (
+                        <div key={song.id} style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          padding: "10px 14px", background: "var(--bg3)",
+                          borderRadius: 8, border: "1px solid var(--border)",
+                          marginBottom: 2
+                        }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{song.title}</div>
+                            <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 2, display: "flex", gap: 10 }}>
+                              {song.bpm && <span>BPM: {song.bpm}</span>}
+                              {song.key && <span>キー: {song.key}</span>}
+                              {song.capo && <span>カポ: {song.capo}</span>}
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                            <button className="btn btn-ghost" style={{ padding: "2px 7px", fontSize: 11 }}
+                              onClick={e => { e.stopPropagation(); setEditSong({ bandId: band.id, song }); setAddSongBandId(null); }}>
+                              ✏️
+                            </button>
+                            <button className="btn btn-ghost btn-danger" style={{ padding: "2px 7px", fontSize: 11 }}
+                              onClick={e => { e.stopPropagation(); deleteSong(band.id, song.title, song.id); }}>
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 4 }}>曲がありません</div>
+                  )}
+                </div>
               </div>
             )}
           </div>
         );
       })}
+
+      {showBandModal && (
+        <BandModal
+          band={editingBand}
+          onSave={saveBand}
+          onClose={() => { setShowBandModal(false); setEditingBand(null); }}
+        />
+      )}
+      {createSetlistBandId && (
+        <SetlistCreateModal
+          onSave={title => { createSetlist(createSetlistBandId, title); }}
+          onClose={() => setCreateSetlistBandId(null)}
+        />
+      )}
+      {addSongBandId && (
+        <SongModal
+          onSave={song => { saveSong(addSongBandId, song); }}
+          onClose={() => setAddSongBandId(null)}
+        />
+      )}
+      {editSong && (
+        <SongModal
+          song={editSong.song}
+          onSave={song => { saveSong(editSong.bandId, song); }}
+          onClose={() => setEditSong(null)}
+        />
+      )}
       {confirmDelete && (
         <ConfirmModal
           message={confirmDelete.message}
