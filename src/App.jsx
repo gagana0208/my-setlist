@@ -502,14 +502,6 @@ function HomeView({ data, setData, onOpenSetlist }) {
                 <span style={{ fontWeight: 500, fontSize: 16 }}>
                   {band.name}
                 </span>
-                {band.members?.length > 0 && (
-                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                    {band.members.slice(0, 4).map(m => (
-                      <span key={m.id} className="chip">{m.name}{m.part && ` / ${m.part}`}</span>
-                    ))}
-                    {band.members.length > 4 && <span className="chip">+{band.members.length - 4}</span>}
-                  </div>
-                )}
               </div>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <button className="btn btn-ghost" style={{ padding: "4px 8px", fontSize: 12 }}
@@ -544,6 +536,14 @@ function HomeView({ data, setData, onOpenSetlist }) {
 
             {expanded && (
               <div style={{ padding: "0 20px 20px" }}>
+                {/* Band Members */}
+                {band.members?.length > 0 && (
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 12 }}>
+                    {band.members.map(m => (
+                      <span key={m.id} className="chip">{m.name}{m.part && ` / ${m.part}`}</span>
+                    ))}
+                  </div>
+                )}
                 {/* Action buttons */}
                 <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
                   <button className="btn" style={{ borderColor: band.color || "var(--gold)", color: band.color || "var(--gold)" }}
