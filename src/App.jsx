@@ -659,6 +659,16 @@ function HomeView({ data, setData, onOpenSetlist }) {
               onMouseLeave={e => e.target.style.color = "var(--text2)"}>
               SNS
             </a>
+            <a> / </a> 
+            <a 
+              href="https://qr.paypay.ne.jp/p2p01_4WXpFyPfXoXXV2JC"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "var(--text2)", textDecoration: "none" }}
+              onMouseEnter={e => e.target.style.color = "var(--gold)"}
+              onMouseLeave={e => e.target.style.color = "var(--text2)"}>
+              Donation
+            </a>
           </div>
           <div style={{ marginTop: 8, fontSize: 11, color: "var(--border)" }}>v1.0.0</div>
         </div>
