@@ -504,10 +504,10 @@ function HomeView({ data, setData, onOpenSetlist }) {
                 </span>
                 {band.members?.length > 0 && (
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                    {band.members.slice(0, 3).map(m => (
+                    {band.members.slice(0, 4).map(m => (
                       <span key={m.id} className="chip">{m.name}{m.part && ` / ${m.part}`}</span>
                     ))}
-                    {band.members.length > 3 && <span className="chip">+{band.members.length - 3}</span>}
+                    {band.members.length > 4 && <span className="chip">+{band.members.length - 4}</span>}
                   </div>
                 )}
               </div>
@@ -520,9 +520,23 @@ function HomeView({ data, setData, onOpenSetlist }) {
                   onClick={e => {
                     e.stopPropagation();
                     const url = `${window.location.origin}${window.location.pathname}?band=${encodeURIComponent(btoa(JSON.stringify(band)))}`;
-                    navigator.clipboard.writeText(url)
-                      .then(() => alert('バンドの共有URLをコピーしました！'))
-                      .catch(() => alert('コピーに失敗しました'));
+                    (async () => {
+                      try {
+                        if (navigator.clipboard && window.isSecureContext) {
+                          await navigator.clipboard.writeText(url);
+                        } else {
+                          const input = document.createElement('input');
+                          input.value = url;
+                          document.body.appendChild(input);
+                          input.select();
+                          document.execCommand('copy');
+                          document.body.removeChild(input);
+                        }
+                        alert('バンドの共有URLをコピーしました！');
+                      } catch (e) {
+                        alert('コピーに失敗しました');
+                      }
+                    })();
                   }}>🌐 URL共有</button>
                 <span style={{ color: "var(--text2)", fontSize: 12 }}>{expanded ? "▲" : "▼"}</span>
               </div>
@@ -639,6 +653,11 @@ function HomeView({ data, setData, onOpenSetlist }) {
                               {song.bpm && <span>BPM: {song.bpm}</span>}
                               {song.key && <span>キー: {song.key}</span>}
                               {song.capo && <span>カポ: {song.capo}</span>}
+                              {(song.durationMin || song.durationSec) && (
+                                <span>
+                                  長さ: {song.durationMin ? song.durationMin + '分' : ''}{song.durationSec ? song.durationSec + '秒' : (!song.durationMin ? '0秒' : '')}
+                                </span>
+                              )}
                             </div>
                           </div>
                           <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
@@ -764,10 +783,8 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
   const [draggingItem, setDraggingItem] = useState(null);
   const [draggingSource, setDraggingSource] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
   const [showSongList, setShowSongList] = useState(true); // toggle for left panel on mobile
   const [editingDuration, setEditingDuration] = useState(null); // instanceId of common item being edited
-  const previewRef = useRef(null);
   const itemRefs = useRef({});
 
   // responsive: narrow panels on small screens
@@ -975,15 +992,29 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn" onClick={() => setShowSongList(s => !s)}>📋 曲一覧</button>
+            <button className="btn" onClick={() => setShowSettings(s => !s)}>⚙ 設定</button>
             <button className="btn" onClick={() => {
               const encoded = encodeForURL(sl);
               const url = `${window.location.origin}${window.location.pathname}?setlist=${encoded}`;
-              navigator.clipboard.writeText(url)
-                .then(() => alert('URLをクリップボードにコピーしました'))
-                .catch(() => alert('コピーに失敗しました'));
+              (async () => {
+                try {
+                  if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(url);
+                  } else {
+                    // Fallback: create a temporary input
+                    const input = document.createElement('input');
+                    input.value = url;
+                    document.body.appendChild(input);
+                    input.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(input);
+                  }
+                  alert('URLをクリップボードにコピーしました');
+                } catch (e) {
+                  alert('コピーに失敗しました');
+                }
+              })();
             }}>🌐 URL共有</button>
-            <button className="btn" onClick={() => setShowSettings(s => !s)}>⚙ 設定</button>
-            <button className="btn" onClick={() => setShowPreview(s => !s)}>👁 プレビュー</button>
           </div>
         </div>
 
@@ -1418,129 +1449,6 @@ function SetlistEditor({ data, setData, bandId, setlistId, onBack }) {
         </div>
       </div>
 
-      {/* Preview Modal / Print */}
-      {showPreview && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowPreview(false)}>
-          <div style={{ padding: 0, width: "100vw", height: "100vh", overflow: "auto", background: "transparent", position: "relative" }}>
-            {/* ensure content doesn't appear under fixed back button */}
-            <button className="btn" style={{ position: "fixed", top: 10, left: 10, zIndex: 100 }} onClick={() => setShowPreview(false)}>← 戻る</button>
-            {/* Only the setlist pages, centered */}
-            {(() => {
-              // Build resolved items (latest song/common data, skip deleted songs)
-              const resolvedItems = sl.items.map(item => {
-                if (item.type === "song") {
-                  const latest = band.songs.find(s => s.id === item.id);
-                  if (!latest) return null;
-                  return { ...item, ...latest, instanceId: item.instanceId };
-                } else if (item.type === "common") {
-                  const latest = commonItems.find(c => c.id === item.id);
-                  return latest ? { ...item, label: latest.label, icon: latest.icon } : item;
-                }
-                return item;
-              }).filter(Boolean);
-
-              const pages = [[]];
-              resolvedItems.forEach(item => {
-                if (item.type === "pagebreak") { pages.push([]); }
-                else { pages[pages.length - 1].push(item); }
-              });
-              let songCounter = 0;
-              const align = (item) => {
-                if (item && item.type === "common") {
-                  return sl.commonTextAlign || sl.textAlign || "left";
-                }
-                return sl.textAlign || "left";
-              };
-              return (
-                <div id="setlist-preview-pages" style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 40 }}>
-                  {pages.map((pageItems, pageIdx) => (
-                    <div key={pageIdx} style={{
-                      width: "210mm",
-                      minHeight: "297mm",
-                      background: sl.bgColor || "#1a1a2e",
-                      backgroundImage: sl.bgImage ? `url(${sl.bgImage})` : "none",
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                      padding: "20mm",
-                      margin: "0 auto 16px",
-                      boxSizing: "border-box",
-                      pageBreakAfter: pageIdx < pages.length - 1 ? "always" : "auto",
-                      fontFamily: `'${sl.font}', sans-serif`,
-                      fontSize: `${sl.fontSize}px`,
-                      letterSpacing: `${sl.letterSpacing}px`,
-                      lineHeight: sl.lineHeight || 1.8,
-                      color: sl.fontColor || "#ffffff",
-                    }}>
-                      {pageIdx === 0 && sl.showTitle && (
-                        <div style={{
-                          fontSize: `${sl.fontSize + 8}px`,
-                          fontWeight: 600,
-                          marginBottom: "10mm",
-                          textAlign: sl.titleAlign || align,
-                        }}>
-                          {sl.title}
-                        </div>
-                      )}
-                      {pageItems.map((item) => {
-                        if (item.type === "song") songCounter++;
-                        const num = item.type === "song" ? songCounter : null;
-                        const styleOverride = {};
-                        const align = (item.type === "common")
-                          ? (sl.commonTextAlign || sl.textAlign || "left")
-                          : (sl.textAlign || "left");
-                        if (item.type === "common" && sl.commonFontMirrorSong === false) {
-                          styleOverride.fontFamily = sl.commonFont;
-                          styleOverride.fontSize = sl.commonFontSize + "px";
-                          styleOverride.letterSpacing = sl.commonLetterSpacing + "px";
-                          styleOverride.lineHeight = sl.commonLineHeight || 1.8;
-                        }
-                        return (
-                          <div key={item.instanceId} style={{
-                            display: "flex", alignItems: "baseline",
-                            justifyContent: align(item) === "right" ? "flex-end"
-                                          : align(item) === "center" ? "center"
-                                          : "flex-start",
-                            gap: "0.3em",
-                            ...styleOverride,
-                          }}>
-                            {sl.showNumbers && item.type === "song" && (
-                              <span style={{ opacity: 0.6, flexShrink: 0 }}>{num}.</span>
-                            )}
-                            <span style={{ textAlign: align(item) }}>
-                              {item.type === "common"
-                                ? ((sl.showCommonIcon !== false) ? `${item.icon || ""} ` : "") + item.label
-                                : item.title}
-                            </span>
-                            <span style={{ display: "flex", gap: "0.5em", flexShrink: 0, fontSize: `${Math.max(10, sl.fontSize - 4)}px`, opacity: 0.7, marginLeft: "0.4em" }}>
-                              {item.type === "song" && sl.showBpm && String(item.bpm).trim() !== "" && (
-                                <span>♩{item.bpm}</span>
-                              )}
-                              {item.type === "song" && sl.showKey && String(item.key).trim() !== "" && (
-                                <span>{item.key}</span>
-                              )}
-                              {item.type === "song" && sl.showCapo && String(item.capo).trim() !== "" && (
-                                <span>Capo{item.capo}</span>
-                              )}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
-            <style>{`
-              @media print {
-                body * { visibility: hidden !important; }
-                #setlist-preview-pages, #setlist-preview-pages * { visibility: visible !important; }
-                #setlist-preview-pages { position: fixed; inset: 0; overflow: visible; }
-                @page { size: A4; margin: 0; }
-              }
-            `}</style>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
